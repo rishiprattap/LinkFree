@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.env*
+!.env.example
+*.tsbuildinfo
+coverage/
+.firebase/
+*-debug.log
+
+.vercel/
+*service-account*.json
+*firebase-adminsdk*.json
+*.pem
+*.key
