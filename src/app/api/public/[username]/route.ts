@@ -110,3 +110,15 @@ export async function POST(
     return fail(e);
   }
 }
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ username: string }> }) {
+  try {
+    sameOrigin(req);
+    const username = usernameSchema.parse((await params).username);
+    await limit('public-read:' + identity(req), 90);
+    const { publicData } = await import('@/lib/server');
+    const data = await publicData(username);
+    if (!data) throw new HttpError(404, 'Profile not found');
+    return NextResponse.json(data, {headers: {'Cache-Control': 'no-store'}});
+  } catch(e) { return fail(e); }
+}

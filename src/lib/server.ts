@@ -59,7 +59,7 @@ export async function body(req: NextRequest) {
 export function sameOrigin(req: NextRequest) {
   const origin = req.headers.get("origin");
   const expected = new URL(process.env.NEXT_PUBLIC_SITE_URL || req.url).origin;
-  if (origin && origin !== expected)
+  if (origin && origin !== expected && origin !== process.env.MOBILE_APP_ORIGIN)
     throw new HttpError(403, "Origin not allowed");
 }
 export async function owner(req: NextRequest) {
