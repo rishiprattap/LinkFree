@@ -35,15 +35,15 @@ async function handle(req: NextRequest, ctx: Context) {
         });
       }
       if (route === "analytics") {
-        const stats = await ref
-          .collection("stats")
-          .orderBy("__name__", "desc")
-          .limit(366)
-          .get();
+        // Firestore already returns a collection by document ID when no order
+        // is specified. Sorting validated day IDs in application code avoids a
+        // special-field query that failed for this project at runtime.
+        const stats = await ref.collection("stats").get();
+        const days = normalizeAnalyticsDays(
+          stats.docs.map((d) => ({ date: d.id, ...d.data() })),
+        ).slice(-366);
         return NextResponse.json({
-          days: normalizeAnalyticsDays(
-            stats.docs.map((d) => ({ date: d.id, ...d.data() })),
-          ),
+          days,
         });
       }
       if (route === "subscribers") {
