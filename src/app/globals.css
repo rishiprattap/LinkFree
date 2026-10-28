@@ -2519,6 +2519,28 @@ label small,
   right: 12px;
   font-size: 24px;
 }
+.analytics-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.analytics-refresh {
+  border: 1px solid var(--line);
+}
+.analytics-message {
+  min-height: 148px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+}
+.analytics-message > svg { color: var(--green); }
+.analytics-message > div { flex: 1; }
+.analytics-message p { margin-top: 5px; max-width: 680px; }
+.analytics-error { border-color: #d89a8e; }
+.analytics-error > svg { color: #b4534b; }
+.spin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 700px) {
   .sidebar,
   .sidebar-collapsed .sidebar {

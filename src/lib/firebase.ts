@@ -24,7 +24,7 @@ export function firebase() {
     });
   return { auth: getAuth(app), storage: getStorage(app) };
 }
-export async function api(path: string, body?: unknown, method?: string) {
+export async function api(path: string, body?: unknown, method?: string): Promise<any> {
   const user = firebase().auth.currentUser;
   if (!user) throw new Error("Please sign in");
   const res = await fetch("/api/owner" + path, {
@@ -35,7 +35,20 @@ export async function api(path: string, body?: unknown, method?: string) {
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
+  const raw = await res.text();
+  let data: unknown = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    if (!res.ok) throw new Error(`Request failed (${res.status}). Try again.`);
+    throw new Error("The server returned an invalid response. Try again.");
+  }
+  if (!res.ok) {
+    const message =
+      data && typeof data === "object" && "error" in data && typeof data.error === "string"
+        ? data.error
+        : `Request failed (${res.status}). Try again.`;
+    throw new Error(message);
+  }
   return data;
 }

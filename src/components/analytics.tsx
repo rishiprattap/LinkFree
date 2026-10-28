@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -15,30 +15,40 @@ import {
   Users,
   TrendingUp,
   ChartNoAxesCombined,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "@/lib/firebase";
 import { useSession } from "./providers";
-type Day = {
-  date: string;
-  views: number;
-  clicks: number;
-  unique: number;
-  devices: Record<string, number>;
-  referrers: Record<string, number>;
-  countries: Record<string, number>;
-};
+import {
+  hasAnalyticsActivity,
+  normalizeAnalyticsDays,
+  type AnalyticsDay,
+} from "@/lib/analytics-data";
 export function Analytics({ local }: { local: boolean }) {
-  const [days, setDays] = useState<Day[]>([]);
+  const [days, setDays] = useState<AnalyticsDay[]>([]);
   const [loading, setLoading] = useState(!local);
+  const [error, setError] = useState("");
   const [monthly, setMonthly] = useState(false);
   const { toast } = useSession();
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (local) return;
-    api("/analytics")
-      .then((d) => setDays(d.days))
-      .catch((e) => toast(e.message))
-      .finally(() => setLoading(false));
+    setLoading(true);
+    setError("");
+    try {
+      const data = await api("/analytics");
+      const record = data && typeof data === "object" ? (data as { days?: unknown }) : {};
+      setDays(normalizeAnalyticsDays(record.days));
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Analytics could not be loaded.";
+      setError(message);
+      toast(message);
+    } finally {
+      setLoading(false);
+    }
   }, [local, toast]);
+  useEffect(() => {
+    void load();
+  }, [load]);
   const totals = days.reduce(
     (a, d) => ({
       views: a.views + d.views,
@@ -66,6 +76,7 @@ export function Analytics({ local }: { local: boolean }) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10);
   }
+  const hasActivity = hasAnalyticsActivity(days);
   return (
     <>
       <div className="section-heading">
@@ -74,17 +85,38 @@ export function Analytics({ local }: { local: boolean }) {
           <h1>Small links. Real impact.</h1>
           <p>Understand how people discover your world.</p>
         </div>
-        <select
-          aria-label="Chart interval"
-          value={monthly ? "month" : "day"}
-          onChange={(e) => setMonthly(e.target.value === "month")}
-        >
-          <option value="day">Daily activity</option>
-          <option value="month">Monthly activity</option>
-        </select>
+        <div className="analytics-actions">
+          <select
+            aria-label="Chart interval"
+            value={monthly ? "month" : "day"}
+            onChange={(e) => setMonthly(e.target.value === "month")}
+          >
+            <option value="day">Daily activity</option>
+            <option value="month">Monthly activity</option>
+          </select>
+          <button className="icon-button analytics-refresh" aria-label="Refresh analytics" title="Refresh analytics" disabled={loading || local} onClick={() => void load()}>
+            <RefreshCw size={16} className={loading ? "spin" : ""} />
+          </button>
+        </div>
       </div>
-      {loading ? (
+      {local ? (
+        <section className="card analytics-message">
+          <ChartNoAxesCombined size={32} />
+          <div><h3>Analytics are available after publishing.</h3><p>Local drafts stay in this browser, so they do not collect visits or clicks.</p></div>
+        </section>
+      ) : loading ? (
         <div className="skeleton" />
+      ) : error ? (
+        <section className="card analytics-message analytics-error" role="alert">
+          <ChartNoAxesCombined size={32} />
+          <div><h3>Analytics could not be loaded.</h3><p>{error}</p></div>
+          <button className="btn compact" onClick={() => void load()}><RefreshCw size={14} /> Try again</button>
+        </section>
+      ) : !hasActivity ? (
+        <section className="card analytics-message">
+          <ChartNoAxesCombined size={32} />
+          <div><h3>No activity recorded yet.</h3><p>A public profile visit records one privacy-conscious view per estimated visitor each day. Opening a link records a click. Studio previews do not affect analytics.</p></div>
+        </section>
       ) : (
         <>
           <div className="stat-grid">

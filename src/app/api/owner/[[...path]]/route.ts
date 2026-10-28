@@ -10,6 +10,7 @@ import {
   passwordHash,
 } from "@/lib/server";
 import { linkSchema, profileSchema, usernameSchema } from "@/lib/model";
+import { normalizeAnalyticsDays } from "@/lib/analytics-data";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ path?: string[] }> };
@@ -40,7 +41,9 @@ async function handle(req: NextRequest, ctx: Context) {
           .limit(366)
           .get();
         return NextResponse.json({
-          days: stats.docs.map((d) => ({ date: d.id, ...d.data() })).reverse(),
+          days: normalizeAnalyticsDays(
+            stats.docs.map((d) => ({ date: d.id, ...d.data() })),
+          ),
         });
       }
       if (route === "subscribers") {
