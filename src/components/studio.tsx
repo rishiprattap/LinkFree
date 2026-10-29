@@ -176,6 +176,15 @@ function download(name: string, text: string, type = "text/plain") {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+function imageUploadError(error: unknown) {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? (error as { code?: unknown }).code
+      : "";
+  if (typeof code === "string" && code.startsWith("storage/"))
+    return "Firebase Storage is not active or does not allow this upload. Enable Storage and deploy its rules, then try again.";
+  return error instanceof Error ? error.message : "Upload failed";
+}
 export function Studio({ local = false }: { local?: boolean }) {
   const { user, loading, toast } = useSession();
   const [tab, setTab] = useState<Tab>("links");
@@ -403,7 +412,7 @@ export function Studio({ local = false }: { local?: boolean }) {
         `${kind === "avatar" ? "Image" : "Background image"} uploaded. Save your profile to apply it.`,
       );
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Upload failed");
+      toast(imageUploadError(e));
     } finally {
       setSaving(false);
     }
