@@ -46,6 +46,7 @@ import {
   linkSchema,
   Profile,
   profileSchema,
+  safeBackgroundImageUrl,
   Theme,
   usernameSchema,
   visible,
@@ -266,6 +267,9 @@ export function Studio({ local = false }: { local?: boolean }) {
         .catch((e) => toast(e.message));
   }, [tab, local, user, toast]);
   const shareUrl = `${origin}/${profile.username}`;
+  const backgroundPreview = safeBackgroundImageUrl(
+    profile.theme.backgroundImage,
+  );
   useEffect(() => {
     if (tab === "share" && profile.username)
       QRCode.toDataURL(shareUrl, {
@@ -359,7 +363,10 @@ export function Studio({ local = false }: { local?: boolean }) {
           : (before + after) / 2;
     await saveLink({ ...item, order });
   }
-  async function upload(file: File | undefined) {
+  async function upload(
+    file: File | undefined,
+    kind: "avatar" | "background" = "avatar",
+  ) {
     if (!file) return;
     if (
       !["image/png", "image/jpeg", "image/webp"].includes(file.type) ||
@@ -382,10 +389,19 @@ export function Studio({ local = false }: { local?: boolean }) {
         throw new Error("Image dimensions must be at most 4096 × 4096");
       }
       blob.close();
-      const target = ref(firebase().storage, `avatars/${user!.uid}/avatar`);
+      const target = ref(
+        firebase().storage,
+        kind === "avatar"
+          ? `avatars/${user!.uid}/avatar`
+          : `backgrounds/${user!.uid}/background`,
+      );
       await uploadBytes(target, file, { contentType: file.type });
-      update({ avatar: await getDownloadURL(target) });
-      toast("Image uploaded. Save your profile to apply it.");
+      const url = await getDownloadURL(target);
+      if (kind === "avatar") update({ avatar: url });
+      else theme({ backgroundImage: url });
+      toast(
+        `${kind === "avatar" ? "Image" : "Background image"} uploaded. Save your profile to apply it.`,
+      );
     } catch (e) {
       toast(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -964,6 +980,58 @@ export function Studio({ local = false }: { local?: boolean }) {
                           </button>
                         ))}
                       </div>
+                    </section>
+                    <section className="card form-stack">
+                      <div className="card-heading">
+                        <div>
+                          <h3>Custom background</h3>
+                          <p className="muted">
+                            Make your public page unmistakably yours.
+                          </p>
+                        </div>
+                        <span className="free-badge">ALL FREE</span>
+                      </div>
+                      {backgroundPreview ? (
+                        <div
+                          className="background-image-preview"
+                          style={{
+                            backgroundImage: `linear-gradient(145deg, ${profile.theme.background}a8, ${profile.theme.accent}78), url("${backgroundPreview}")`,
+                          }}
+                        >
+                          <span>Background image active</span>
+                        </div>
+                      ) : (
+                        <p className="fine-print">
+                          Add a PNG, JPEG or WebP image behind your profile.
+                          Your theme colors keep the text and links readable.
+                        </p>
+                      )}
+                      <div className="upload-row background-upload-row">
+                        <label className="btn compact upload-label">
+                          Upload background
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            onChange={(e) =>
+                              void upload(
+                                e.target.files?.[0],
+                                "background",
+                              )
+                            }
+                          />
+                        </label>
+                        {backgroundPreview && (
+                          <button
+                            className="text-button"
+                            onClick={() => theme({ backgroundImage: "" })}
+                          >
+                            Remove background
+                          </button>
+                        )}
+                      </div>
+                      <small className="muted">
+                        PNG, JPEG or WebP · up to 2 MiB · 4096 × 4096 maximum
+                      </small>
                     </section>
                     <section className="card form-stack">
                       <h3>The finer details</h3>

@@ -14,7 +14,14 @@ import {
   Link2,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { embedUrl, LinkItem, Profile, safeStyles, visible } from "@/lib/model";
+import {
+  embedUrl,
+  LinkItem,
+  Profile,
+  safeBackgroundImageUrl,
+  safeStyles,
+  visible,
+} from "@/lib/model";
 import { useSession } from "./providers";
 const socials = {
   instagram: Instagram,
@@ -44,6 +51,7 @@ export function ProfileView({
   const [subscription, setSubscription] = useState("");
   const [unsubscribe, setUnsubscribe] = useState("");
   const t = profile.theme;
+  const backgroundImage = safeBackgroundImageUrl(t.backgroundImage);
   const lockDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (locked) lockDialog.current?.showModal();
@@ -139,6 +147,10 @@ export function ProfileView({
       setBusy(false);
     }
   }
+  const gradient = `linear-gradient(145deg, ${t.background}, ${t.background} 35%, ${t.accent}55)`;
+  const imageOverlay = t.gradient
+    ? `linear-gradient(145deg, ${t.background}c9, ${t.background}b3 35%, ${t.accent}9c)`
+    : `linear-gradient(145deg, ${t.background}c9, ${t.background}91)`;
   const style = {
     "--profile-bg": t.background,
     "--profile-accent": t.accent,
@@ -151,14 +163,20 @@ export function ProfileView({
         : t.font === "mono"
           ? "monospace"
           : "Arial, sans-serif",
-    background: t.gradient
-      ? `linear-gradient(145deg, ${t.background}, ${t.background} 35%, ${t.accent}55)`
-      : t.background,
+    backgroundColor: t.background,
+    backgroundImage: backgroundImage
+      ? `${imageOverlay}, url("${backgroundImage}")`
+      : t.gradient
+        ? gradient
+        : undefined,
+    backgroundPosition: backgroundImage ? "center" : undefined,
+    backgroundRepeat: backgroundImage ? "no-repeat" : undefined,
+    backgroundSize: backgroundImage ? "cover" : undefined,
     ...safeStyles(t.customCss),
   } as CSSProperties;
   return (
     <div
-      className={`profile-canvas ${t.animated ? "animated-bg" : ""} ${t.glass ? "glass-buttons" : ""} ${t.shadow ? "shadow-buttons" : ""} ${preview ? "is-preview" : ""}`}
+      className={`profile-canvas ${backgroundImage ? "has-background-image" : ""} ${t.animated ? "animated-bg" : ""} ${t.glass ? "glass-buttons" : ""} ${t.shadow ? "shadow-buttons" : ""} ${preview ? "is-preview" : ""}`}
       style={style}
     >
       <div className="profile-orb" />

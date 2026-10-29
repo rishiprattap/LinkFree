@@ -14,6 +14,36 @@ import { normalizeAnalyticsDays } from "@/lib/analytics-data";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ path?: string[] }> };
+function assertOwnedStorageImage(
+  value: string,
+  uid: string,
+  folder: "avatars" | "backgrounds",
+  filename: "avatar" | "background",
+  label: string,
+) {
+  if (!value) return;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new HttpError(400, `Upload a ${label} using the profile editor`);
+  }
+  const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  let objectPath = "";
+  try {
+    objectPath = decodeURIComponent(url.pathname.split("/o/")[1] || "");
+  } catch {
+    throw new HttpError(400, `Upload a ${label} using the profile editor`);
+  }
+  if (
+    url.protocol !== "https:" ||
+    url.hostname !== "firebasestorage.googleapis.com" ||
+    !bucket ||
+    !url.pathname.startsWith(`/v0/b/${bucket}/o/`) ||
+    objectPath !== `${folder}/${uid}/${filename}`
+  )
+    throw new HttpError(400, `Upload a ${label} using the profile editor`);
+}
 async function handle(req: NextRequest, ctx: Context) {
   try {
     const user = await owner(req);
@@ -79,9 +109,14 @@ async function handle(req: NextRequest, ctx: Context) {
         await ref.set({ published: false }, { merge: true });
         const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
         if (bucket)
-          await getStorage()
-            .bucket(bucket)
-            .deleteFiles({ prefix: `avatars/${user.uid}/` });
+          await Promise.all([
+            getStorage().bucket(bucket).deleteFiles({
+              prefix: `avatars/${user.uid}/`,
+            }),
+            getStorage().bucket(bucket).deleteFiles({
+              prefix: `backgrounds/${user.uid}/`,
+            }),
+          ]);
         await db.recursiveDelete(ref);
         if (username)
           await db.runTransaction(async (tx) => {
@@ -98,19 +133,20 @@ async function handle(req: NextRequest, ctx: Context) {
     if (route === "profile") {
       const profile = profileSchema.parse(input);
       const username = usernameSchema.parse(input.username);
-      if (profile.avatar) {
-        const u = new URL(profile.avatar);
-        const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-        if (
-          u.protocol !== "https:" ||
-          u.hostname !== "firebasestorage.googleapis.com" ||
-          !u.pathname.startsWith(`/v0/b/${bucket}/o/`) ||
-          !decodeURIComponent(u.pathname.split("/o/")[1] || "").startsWith(
-            `avatars/${user.uid}/`,
-          )
-        )
-          throw new HttpError(400, "Upload an avatar using the profile editor");
-      }
+      assertOwnedStorageImage(
+        profile.avatar,
+        user.uid,
+        "avatars",
+        "avatar",
+        "avatar",
+      );
+      assertOwnedStorageImage(
+        profile.theme.backgroundImage,
+        user.uid,
+        "backgrounds",
+        "background",
+        "background image",
+      );
       await db.runTransaction(async (tx) => {
         const old = await tx.get(ref);
         const claim = db.collection("usernames").doc(username);

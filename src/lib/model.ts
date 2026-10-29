@@ -44,9 +44,40 @@ export const urlSchema = z
   .max(2048)
   .refine((v) => safeUrl(v), "Use an http(s), mailto, or tel URL");
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+/**
+ * Backgrounds are uploaded through the profile editor, not pasted from an
+ * arbitrary remote URL. Keeping the renderer to Firebase Storage URLs avoids
+ * using the public page as a third-party image proxy or tracking surface.
+ */
+export function safeBackgroundImageUrl(value: string) {
+  if (!value || value.length > 2048) return "";
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      url.hostname !== "firebasestorage.googleapis.com"
+    )
+      return "";
+    const match = url.pathname.match(/^\/v0\/b\/[^/]+\/o\/(.+)$/);
+    const objectPath = match ? decodeURIComponent(match[1]) : "";
+    return /^backgrounds\/[A-Za-z0-9_-]+\/background$/.test(objectPath)
+      ? url.toString()
+      : "";
+  } catch {
+    return "";
+  }
+}
 export const themeSchema = z.object({
   preset: z.enum(["mint", "midnight", "peach", "lavender", "paper"]),
   background: color,
+  backgroundImage: z
+    .string()
+    .max(2048)
+    .refine(
+      (value) => !value || !!safeBackgroundImageUrl(value),
+      "Upload a background using the appearance editor",
+    )
+    .default(""),
   accent: color,
   text: color,
   gradient: z.boolean(),
@@ -60,6 +91,7 @@ export const themeSchema = z.object({
 export const defaultTheme: Theme = {
   preset: "mint",
   background: "#e5f3e9",
+  backgroundImage: "",
   accent: "#174d3a",
   text: "#183e31",
   gradient: true,

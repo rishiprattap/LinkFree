@@ -7,6 +7,9 @@ import {
   visible,
   publicLink,
   embedUrl,
+  safeBackgroundImageUrl,
+  themeSchema,
+  defaultTheme,
 } from "../src/lib/model";
 const link = {
   id: "a",
@@ -54,6 +57,27 @@ describe("Security boundaries", () => {
         "letter-spacing:99px;font-weight:var(--x);border-width:expression(1)",
       ),
     ).toEqual({});
+  });
+  it("accepts only Firebase-hosted custom backgrounds", () => {
+    const uploaded =
+      "https://firebasestorage.googleapis.com/v0/b/linkfree-test.appspot.com/o/backgrounds%2Fowner_1%2Fbackground?alt=media&token=test";
+    expect(safeBackgroundImageUrl(uploaded)).toBe(uploaded);
+    expect(
+      themeSchema.safeParse({ ...defaultTheme, backgroundImage: uploaded })
+        .success,
+    ).toBe(true);
+    for (const unsafe of [
+      "https://example.com/background.jpg",
+      "javascript:alert(1)",
+      "https://firebasestorage.googleapis.com/v0/b/linkfree-test.appspot.com/o/avatars%2Fowner_1%2Favatar",
+      "https://firebasestorage.googleapis.com/v0/b/linkfree-test.appspot.com/o/backgrounds%2Fowner_1%2Fother",
+    ]) {
+      expect(safeBackgroundImageUrl(unsafe)).toBe("");
+      expect(
+        themeSchema.safeParse({ ...defaultTheme, backgroundImage: unsafe })
+          .success,
+      ).toBe(false);
+    }
   });
   it("enforces time boundaries and disabled links", () => {
     const l = {
